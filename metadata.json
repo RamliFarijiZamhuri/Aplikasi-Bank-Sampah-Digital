@@ -1,0 +1,6 @@
+{
+  "name": "Aplikasi Bank Sampah Digital",
+  "description": "Sistem informasi pengelolaan bank sampah digital untuk pengelolaan setoran nasabah, pembaruan harga kategori sampah, dan pemantauan stok gudang.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
