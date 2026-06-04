@@ -1,0 +1,13 @@
+{
+  "/": "pages/index.js",
+  "/_app": "pages/_app.js",
+  "/_document": "pages/_document.js",
+  "/_error": "pages/_error.js",
+  "/api/auth/login": "pages/api/auth/login.js",
+  "/api/auth/logout": "pages/api/auth/logout.js",
+  "/dashboard/nasabah": "pages/dashboard/nasabah.js",
+  "/dashboard/pengepul": "pages/dashboard/pengepul.js",
+  "/dashboard/petugas": "pages/dashboard/petugas.js",
+  "/login": "pages/login.js",
+  "/register": "pages/register.js"
+}

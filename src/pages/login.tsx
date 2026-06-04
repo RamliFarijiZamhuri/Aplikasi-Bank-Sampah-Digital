@@ -202,6 +202,16 @@ export default function LoginPage() {
               </button>
             </form>
 
+            <div className="mt-4 text-center text-xs text-slate-500">
+              Belum memiliki akun?{' '}
+              <button 
+                onClick={() => router.push('/register')}
+                className="font-semibold text-emerald-600 hover:text-emerald-700 transition cursor-pointer"
+              >
+                Daftar sekarang
+              </button>
+            </div>
+
             {/* Test Accounts Helper Box */}
             <div id="test_accounts_guide" className="mt-8 border border-slate-200 rounded-xl p-4 bg-slate-50">
               <div className="flex items-center gap-2 mb-2 text-slate-700">

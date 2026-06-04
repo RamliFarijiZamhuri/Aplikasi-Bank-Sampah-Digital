@@ -1,0 +1,23 @@
+{
+  "/": "pages/index.js",
+  "/_app": "pages/_app.js",
+  "/_document": "pages/_document.js",
+  "/_error": "pages/_error.js",
+  "/api/admin/create-staff": "pages/api/admin/create-staff.js",
+  "/api/auth/login": "pages/api/auth/login.js",
+  "/api/auth/logout": "pages/api/auth/logout.js",
+  "/api/auth/register": "pages/api/auth/register.js",
+  "/api/nasabah/tarik": "pages/api/nasabah/tarik.js",
+  "/api/pengepul/beli": "pages/api/pengepul/beli.js",
+  "/api/petugas/approve-tarik": "pages/api/petugas/approve-tarik.js",
+  "/api/petugas/reject-tarik": "pages/api/petugas/reject-tarik.js",
+  "/api/petugas/setor": "pages/api/petugas/setor.js",
+  "/api/petugas/update-harga": "pages/api/petugas/update-harga.js",
+  "/dashboard/nasabah": "pages/dashboard/nasabah.js",
+  "/dashboard/pengepul": "pages/dashboard/pengepul.js",
+  "/dashboard/pengepul/manifest/[id]": "pages/dashboard/pengepul/manifest/[id].js",
+  "/dashboard/petugas": "pages/dashboard/petugas.js",
+  "/login": "pages/login.html",
+  "/register": "pages/register.html",
+  "/404": "pages/404.html"
+}
