@@ -1,6 +1,0 @@
-__turbopack_load_page_chunks__("/dashboard/nasabah", [
-  "static/chunks/30rfl1w231y-h.js",
-  "static/chunks/04ykvs_g_fb29.js",
-  "static/chunks/1kso93b6wykta.js",
-  "static/chunks/turbopack-2w7bh3ibigapu.js"
-])
