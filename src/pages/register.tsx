@@ -1,71 +1,57 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/router';
-import { Leaf, Recycle, Check, Phone, Lock, ArrowRight, Info, AlertCircle, CheckCircle } from 'lucide-react';
+import { Leaf, Recycle, Check, Phone, Lock, ArrowRight, AlertCircle, CheckCircle, User, MapPin } from 'lucide-react';
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
+  const [nama, setNama] = useState('');
   const [nomorHp, setNomorHp] = useState('');
+  const [alamat, setAlamat] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('Nasabah'); // Default role Nasabah
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // Parse query params for errors or success messages from callbacks
-    if (router.query.error) {
-      setError(router.query.error as string);
-    }
-    if (router.query.success) {
-      setSuccess(router.query.success as string);
-    }
-  }, [router.query]);
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ nomor_hp: nomorHp, password }),
+        body: JSON.stringify({
+          nama,
+          nomor_hp: nomorHp,
+          alamat,
+          role,
+          password
+        }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Login gagal');
+        throw new Error(data.message || 'Registrasi gagal');
       }
 
-      setSuccess('Login berhasil! Mengalihkan ke dashboard...');
-      
-      // Redirect to respective cockpit based on role
-      if (data.role === 'Nasabah') {
-        router.push('/dashboard/nasabah');
-      } else if (data.role === 'Petugas') {
-        router.push('/dashboard/petugas');
-      } else if (data.role === 'Pengepul') {
-        router.push('/dashboard/pengepul');
-      } else {
-        router.push('/');
-      }
+      setSuccess('Registrasi berhasil! Mengalihkan ke halaman masuk...');
+      setTimeout(() => {
+        router.push('/login?success=Registrasi+berhasil.+Silakan+masuk.');
+      }, 2000);
     } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan sistem internal.');
+      setError(err.message || 'Terjadi kesalahan saat melakukan registrasi.');
     } finally {
       setLoading(false);
     }
   };
 
-  const fillForm = (hp: string, pass: string) => {
-    setNomorHp(hp);
-    setPassword(pass);
-  };
-
   return (
-    <div className="bg-slate-50 min-h-screen flex flex-col justify-between hover:scroll-auto">
+    <div className="bg-slate-50 min-h-screen flex flex-col justify-between">
       {/* Header Banner */}
       <header className="w-full bg-emerald-700 text-white py-4 px-6 shadow-sm">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
@@ -92,7 +78,7 @@ export default function LoginPage() {
                 <h1 className="text-2xl font-bold tracking-tight">Trash Bank App</h1>
               </div>
               <p className="text-emerald-100 font-light text-sm leading-relaxed mb-6">
-                Selamat datang di Sistem Informasi Bank Sampah Digital. Kami membantu masyarakat mengelola sampah menjadi tabungan bernilai tinggi guna mewujudkan lingkungan hijau bebas limbah.
+                Silakan isi data diri Anda untuk bergabung sebagai Nasabah Bank Sampah Digital dan mulailah menyetor sampah daur ulang untuk menjadi tabungan bernilai rupiah.
               </p>
               
               <div className="space-y-4">
@@ -101,8 +87,8 @@ export default function LoginPage() {
                     <Check className="w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-sm">Setor Sampah Mudah</h4>
-                    <p className="text-xs text-emerald-200">Sampah ditimbang, langsung jadi saldo rupiah.</p>
+                    <h4 className="font-semibold text-sm">Pendaftaran Gratis</h4>
+                    <p className="text-xs text-emerald-200">Tidak ada biaya pendaftaran untuk menjadi Nasabah.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -110,17 +96,8 @@ export default function LoginPage() {
                     <Check className="w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-sm">Penarikan Saldo Cepat</h4>
-                    <p className="text-xs text-emerald-200">Tarik tabungan digital Anda kapan saja.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="mt-1 bg-white/10 p-1 rounded-full text-emerald-300">
-                    <Check className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-sm">Sirkular Ekonomi Terpadu</h4>
-                    <p className="text-xs text-emerald-200">Gudang terkelola transparan untuk mitra pengepul besar.</p>
+                    <h4 className="font-semibold text-sm">Validasi Otomatis</h4>
+                    <p className="text-xs text-emerald-200">Akun Anda langsung aktif dan siap digunakan untuk setoran sampah pertama.</p>
                   </div>
                 </div>
               </div>
@@ -131,11 +108,11 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Right Side: Login Form */}
+          {/* Right Side: Register Form */}
           <div className="p-8 flex flex-col justify-center">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-slate-800">Masuk Akun</h2>
-              <p className="text-xs text-slate-500 mt-1">Gunakan nomor handphone Anda untuk masuk ke dashboard</p>
+              <h2 className="text-2xl font-bold text-slate-800">Daftar Akun Baru</h2>
+              <p className="text-xs text-slate-500 mt-1">Gabung sekarang dan mulai berkontribusi untuk bumi yang lebih bersih</p>
             </div>
 
             {error && (
@@ -152,7 +129,26 @@ export default function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleRegister} className="space-y-4">
+              <div>
+                <label htmlFor="nama" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Nama Lengkap</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <input 
+                    type="text" 
+                    name="nama" 
+                    id="nama" 
+                    placeholder="Nama Lengkap Anda" 
+                    value={nama}
+                    onChange={(e) => setNama(e.target.value)}
+                    required
+                    className="block w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white text-slate-800 transition duration-150"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label htmlFor="nomor_hp" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Nomor Handphone</label>
                 <div className="relative">
@@ -170,6 +166,39 @@ export default function LoginPage() {
                     className="block w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white text-slate-800 transition duration-150"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label htmlFor="alamat" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Alamat Domisili</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 pt-3 flex items-start pointer-events-none text-slate-400">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  <textarea 
+                    name="alamat" 
+                    id="alamat" 
+                    placeholder="Alamat Lengkap Anda" 
+                    value={alamat}
+                    onChange={(e) => setAlamat(e.target.value)}
+                    rows={2}
+                    className="block w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white text-slate-800 transition duration-150"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="role" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Pilihan Role</label>
+                <select 
+                  name="role" 
+                  id="role" 
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="block w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white text-slate-800 transition duration-150"
+                >
+                  <option value="Nasabah">Nasabah (Pendaftaran Publik)</option>
+                  <option value="Petugas">Petugas (Akan Ditolak Sistem)</option>
+                  <option value="Pengepul">Pengepul (Akan Ditolak Sistem)</option>
+                </select>
               </div>
 
               <div>
@@ -192,58 +221,24 @@ export default function LoginPage() {
               </div>
 
               <button 
-                id="login_btn"
+                id="register_btn"
                 type="submit" 
                 disabled={loading}
                 className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-lg transition duration-150 shadow-md flex items-center justify-center gap-2 mt-4 cursor-pointer disabled:opacity-50"
               >
-                <span>{loading ? 'Memvalidasi...' : 'Masuk ke Dashboard'}</span>
+                <span>{loading ? 'Mendaftarkan...' : 'Daftar Sekarang'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
 
-            <div className="mt-4 text-center text-xs text-slate-500">
-              Belum memiliki akun?{' '}
+            <div className="mt-6 text-center text-xs text-slate-500">
+              Sudah memiliki akun?{' '}
               <button 
-                onClick={() => router.push('/register')}
-                className="font-semibold text-emerald-600 hover:text-emerald-700 transition cursor-pointer"
+                onClick={() => router.push('/login')}
+                className="font-semibold text-emerald-600 hover:text-emerald-700 transition"
               >
-                Daftar sekarang
+                Masuk di sini
               </button>
-            </div>
-
-            {/* Test Accounts Helper Box */}
-            <div id="test_accounts_guide" className="mt-8 border border-slate-200 rounded-xl p-4 bg-slate-50">
-              <div className="flex items-center gap-2 mb-2 text-slate-700">
-                <Info className="w-4 h-4 text-emerald-600" />
-                <span className="text-xs font-bold uppercase tracking-wider">Akun Demo Pengujian (Password: <span className="font-mono text-emerald-600">password123</span>)</span>
-              </div>
-              <div className="grid grid-cols-1 gap-2 text-xs text-slate-600">
-                <button 
-                  onClick={() => fillForm('081234567890', 'password123')} 
-                  type="button"
-                  className="text-left bg-white hover:bg-emerald-50 border border-slate-200 p-2 rounded-lg transition cursor-pointer"
-                >
-                  <span className="font-bold text-emerald-800">[PETUGAS]</span> Budi Petugas <br />
-                  <span className="text-slate-400 font-mono text-[11px]">HP: 081234567890</span>
-                </button>
-                <button 
-                  onClick={() => fillForm('081299999999', 'password123')} 
-                  type="button"
-                  className="text-left bg-white hover:bg-emerald-50 border border-slate-200 p-2 rounded-lg transition cursor-pointer"
-                >
-                  <span className="font-bold text-emerald-800">[NASABAH]</span> Siti Nasabah <br />
-                  <span className="text-slate-400 font-mono text-[11px]">HP: 081299999999</span>
-                </button>
-                <button 
-                  onClick={() => fillForm('081388888888', 'password123')} 
-                  type="button"
-                  className="text-left bg-white hover:bg-emerald-50 border border-slate-200 p-2 rounded-lg transition cursor-pointer"
-                >
-                  <span className="font-bold text-emerald-800">[PENGEPUL]</span> Rudi Pengepul <br />
-                  <span className="text-slate-400 font-mono text-[11px]">HP: 081388888888</span>
-                </button>
-              </div>
             </div>
           </div>
         </div>

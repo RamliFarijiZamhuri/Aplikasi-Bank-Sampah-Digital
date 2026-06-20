@@ -3,7 +3,7 @@ import { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
 import { getSessionUser, SessionUser } from '../../lib/session';
 import { dbAll, dbGet, initializeDatabase } from '../../lib/db';
-import { Leaf, LogOut, CheckSquare, PlusCircle, Scale, Save, Inbox, Edit3, Trash2, Clock, Wallet, AlertCircle, CheckCircle } from 'lucide-react';
+import { Leaf, LogOut, CheckSquare, PlusCircle, Scale, Save, Inbox, Edit3, Trash2, Clock, Wallet, AlertCircle, CheckCircle, UserPlus } from 'lucide-react';
 
 interface PetugasDashboardProps {
   user: SessionUser;
@@ -36,6 +36,14 @@ export default function PetugasDashboard({
   // Update Harga Form states
   const [updateKategoriId, setUpdateKategoriId] = useState('');
   const [hargaBaru, setHargaBaru] = useState('');
+
+  // Register Staff Form states
+  const [staffNama, setStaffNama] = useState('');
+  const [staffNomorHp, setStaffNomorHp] = useState('');
+  const [staffAlamat, setStaffAlamat] = useState('');
+  const [staffRole, setStaffRole] = useState('Petugas');
+  const [staffPassword, setStaffPassword] = useState('');
+  const [staffSubmitting, setStaffSubmitting] = useState(false);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -229,6 +237,50 @@ export default function PetugasDashboard({
       router.replace(router.asPath);
     } catch (err: any) {
       setError(err.message || 'Gagal memperbarui harga.');
+    }
+  };
+
+  const handleCreateStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!staffNama || !staffNomorHp || !staffRole || !staffPassword) {
+      setError('Semua field wajib diisi (kecuali alamat)!');
+      return;
+    }
+
+    setStaffSubmitting(true);
+    try {
+      const res = await fetch('/api/admin/create-staff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nama: staffNama,
+          nomor_hp: staffNomorHp,
+          alamat: staffAlamat,
+          role: staffRole,
+          password: staffPassword
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Gagal membuat akun staff');
+      }
+
+      setSuccess(data.message || `Akun ${staffRole} berhasil dibuat secara manual.`);
+      // Reset form
+      setStaffNama('');
+      setStaffNomorHp('');
+      setStaffAlamat('');
+      setStaffRole('Petugas');
+      setStaffPassword('');
+      router.replace(router.asPath);
+    } catch (err: any) {
+      setError(err.message || 'Gagal membuat akun staff.');
+    } finally {
+      setStaffSubmitting(false);
     }
   };
 
@@ -642,6 +694,91 @@ export default function PetugasDashboard({
 
                   <button type="submit" className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow-sm transition cursor-pointer">
                     Perbarui Harga Katalog
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            {/* Form Registrasi Staff Baru */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-slate-600" />
+                <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Tambah Petugas / Pengepul</h3>
+              </div>
+
+              <div className="p-6">
+                <form onSubmit={handleCreateStaff} className="space-y-4">
+                  <div>
+                    <label htmlFor="staff_nama" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1 font-sans">Nama Lengkap</label>
+                    <input 
+                      type="text" 
+                      id="staff_nama" 
+                      required 
+                      placeholder="Nama Lengkap Staff"
+                      value={staffNama}
+                      onChange={(e) => setStaffNama(e.target.value)}
+                      className="block w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:bg-white transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="staff_nomor_hp" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1 font-sans">Nomor HP</label>
+                    <input 
+                      type="text" 
+                      id="staff_nomor_hp" 
+                      required 
+                      placeholder="Contoh: 0812xxxxxxxx"
+                      value={staffNomorHp}
+                      onChange={(e) => setStaffNomorHp(e.target.value)}
+                      className="block w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-800 focus:outline-none focus:bg-white transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="staff_alamat" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1 font-sans">Alamat (Opsional)</label>
+                    <textarea 
+                      id="staff_alamat" 
+                      rows={2}
+                      placeholder="Alamat Lengkap"
+                      value={staffAlamat}
+                      onChange={(e) => setStaffAlamat(e.target.value)}
+                      className="block w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:bg-white transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="staff_role" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1 font-sans">Pilihan Role</label>
+                    <select 
+                      id="staff_role" 
+                      required
+                      value={staffRole}
+                      onChange={(e) => setStaffRole(e.target.value)}
+                      className="block w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:bg-white transition"
+                    >
+                      <option value="Petugas">Petugas</option>
+                      <option value="Pengepul">Pengepul</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="staff_password" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1 font-sans">Kata Sandi</label>
+                    <input 
+                      type="password" 
+                      id="staff_password" 
+                      required 
+                      placeholder="••••••••"
+                      value={staffPassword}
+                      onChange={(e) => setStaffPassword(e.target.value)}
+                      className="block w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:bg-white transition"
+                    />
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    disabled={staffSubmitting}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow-sm transition cursor-pointer disabled:opacity-50"
+                  >
+                    {staffSubmitting ? 'Memproses...' : 'Daftarkan Staff Baru'}
                   </button>
                 </form>
               </div>

@@ -2,6 +2,9 @@ node_modules/
 build/
 dist/
 coverage/
+.next/
+temp/
+!STAFF_REGISTRATION_GUIDE.md
 
 # OS-specific files
 .DS_Store
