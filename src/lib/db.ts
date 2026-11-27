@@ -1,12 +1,38 @@
 import sqlite3 from 'sqlite3';
 import path from 'path';
+import os from 'os';
+import fs from 'fs';
 import bcrypt from 'bcryptjs';
 
+function resolveDbPath(): string {
+  const localDbPath = path.resolve(process.cwd(), 'database.sqlite');
+
+  // Di Vercel atau environment read-only, gunakan /tmp yang writable
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    const tmpDbPath = path.join(os.tmpdir(), 'database.sqlite');
+    if (!fs.existsSync(tmpDbPath) && fs.existsSync(localDbPath)) {
+      try {
+        fs.copyFileSync(localDbPath, tmpDbPath);
+      } catch {
+        // Abaikan jika gagal menyalin; initializeDatabase akan membuat DB baru
+      }
+    }
+    return tmpDbPath;
+  }
+
+  try {
+    fs.accessSync(process.cwd(), fs.constants.W_OK);
+    return localDbPath;
+  } catch {
+    return path.join(os.tmpdir(), 'database.sqlite');
+  }
+}
+
 // Setup SQLite Connection
-const dbPath = path.resolve(process.cwd(), 'database.sqlite');
+const dbPath = resolveDbPath();
 export const db = new sqlite3.Database(dbPath);
 
-export const dbRun = (query: string, params: any[] = []): Promise<any> => {
+const rawRun = (query: string, params: any[] = []): Promise<any> => {
   return new Promise((resolve, reject) => {
     db.run(query, params, function (err) {
       if (err) reject(err);
@@ -15,7 +41,7 @@ export const dbRun = (query: string, params: any[] = []): Promise<any> => {
   });
 };
 
-export const dbGet = (query: string, params: any[] = []): Promise<any> => {
+const rawGet = (query: string, params: any[] = []): Promise<any> => {
   return new Promise((resolve, reject) => {
     db.get(query, params, (err, row) => {
       if (err) reject(err);
@@ -24,7 +50,7 @@ export const dbGet = (query: string, params: any[] = []): Promise<any> => {
   });
 };
 
-export const dbAll = (query: string, params: any[] = []): Promise<any[]> => {
+const rawAll = (query: string, params: any[] = []): Promise<any[]> => {
   return new Promise((resolve, reject) => {
     db.all(query, params, (err, rows) => {
       if (err) reject(err);
@@ -33,16 +59,19 @@ export const dbAll = (query: string, params: any[] = []): Promise<any[]> => {
   });
 };
 
-// Database Auto-Initialization if tables don't exist
-export async function initializeDatabase() {
-  await dbRun('PRAGMA foreign_keys = ON;');
-  const userTable = await dbGet("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
-  
-  if (!userTable) {
-    console.log("Database file atau tabel 'users' belum ada di Next.js. Menjalankan DDL dan Seed otomatis...");
-    
-    await dbRun(`
-      CREATE TABLE users (
+let initPromise: Promise<void> | null = null;
+let isInitialized = false;
+
+// Database Auto-Initialization if tables or dummy data don't exist
+export async function initializeDatabase(): Promise<void> {
+  if (isInitialized) return;
+  if (initPromise) return initPromise;
+
+  initPromise = (async () => {
+    await rawRun('PRAGMA foreign_keys = ON;');
+
+    await rawRun(`
+      CREATE TABLE IF NOT EXISTS users (
         id_user INTEGER PRIMARY KEY AUTOINCREMENT,
         nama TEXT NOT NULL,
         nomor_hp TEXT UNIQUE NOT NULL,
@@ -53,16 +82,16 @@ export async function initializeDatabase() {
       );
     `);
 
-    await dbRun(`
-      CREATE TABLE kategori_sampah (
+    await rawRun(`
+      CREATE TABLE IF NOT EXISTS kategori_sampah (
         id_kategori INTEGER PRIMARY KEY AUTOINCREMENT,
         nama_kategori TEXT NOT NULL,
         harga_per_kg REAL NOT NULL
       );
     `);
 
-    await dbRun(`
-      CREATE TABLE transaksi_setor (
+    await rawRun(`
+      CREATE TABLE IF NOT EXISTS transaksi_setor (
         id_setor INTEGER PRIMARY KEY AUTOINCREMENT,
         id_user INTEGER NOT NULL,
         id_petugas INTEGER NOT NULL,
@@ -72,8 +101,8 @@ export async function initializeDatabase() {
       );
     `);
 
-    await dbRun(`
-      CREATE TABLE detail_setor (
+    await rawRun(`
+      CREATE TABLE IF NOT EXISTS detail_setor (
         id_detail INTEGER PRIMARY KEY AUTOINCREMENT,
         id_setor INTEGER NOT NULL,
         id_kategori INTEGER NOT NULL,
@@ -84,8 +113,8 @@ export async function initializeDatabase() {
       );
     `);
 
-    await dbRun(`
-      CREATE TABLE penarikan_saldo (
+    await rawRun(`
+      CREATE TABLE IF NOT EXISTS penarikan_saldo (
         id_tarik INTEGER PRIMARY KEY AUTOINCREMENT,
         id_user INTEGER NOT NULL,
         id_tarik_dummy INTEGER,
@@ -96,8 +125,8 @@ export async function initializeDatabase() {
       );
     `);
 
-    await dbRun(`
-      CREATE TABLE pembelian_pengepul (
+    await rawRun(`
+      CREATE TABLE IF NOT EXISTS pembelian_pengepul (
         id_pembelian INTEGER PRIMARY KEY AUTOINCREMENT,
         id_user INTEGER NOT NULL,
         id_kategori INTEGER NOT NULL,
@@ -109,38 +138,95 @@ export async function initializeDatabase() {
       );
     `);
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedDefaultPassword = await bcrypt.hash('password123', salt);
+    const userCountRow = await rawGet('SELECT COUNT(*) AS count FROM users');
+    if (!userCountRow || userCountRow.count === 0) {
+      console.log('Data user kosong. Menjalankan seed data dummy...');
 
-    await dbRun(
-      'INSERT INTO users (nama, nomor_hp, alamat, role, password, saldo) VALUES (?, ?, ?, ?, ?, ?)',
-      ['Budi Petugas', '081234567890', 'Kantor Bank Sampah Indah', 'Petugas', hashedDefaultPassword, 0]
-    );
+      const salt = await bcrypt.genSalt(10);
+      const hashedDefaultPassword = await bcrypt.hash('password123', salt);
 
-    await dbRun(
-      'INSERT INTO users (nama, nomor_hp, alamat, role, password, saldo) VALUES (?, ?, ?, ?, ?, ?)',
-      ['Siti Nasabah', '081299999999', 'Jl. Mawar No. 12, RT 02/03', 'Nasabah', hashedDefaultPassword, 50000]
-    );
+      const petugasRes = await rawRun(
+        'INSERT INTO users (nama, nomor_hp, alamat, role, password, saldo) VALUES (?, ?, ?, ?, ?, ?)',
+        ['Budi Petugas', '081234567890', 'Kantor Bank Sampah Indah', 'Petugas', hashedDefaultPassword, 0]
+      );
+      const petugasId = petugasRes.lastID;
 
-    await dbRun(
-      'INSERT INTO users (nama, nomor_hp, alamat, role, password, saldo) VALUES (?, ?, ?, ?, ?, ?)',
-      ['Rudi Pengepul', '081388888888', 'Gudang Sukses Makmur, Bekasi', 'Pengepul', hashedDefaultPassword, 0]
-    );
+      const nasabahRes = await rawRun(
+        'INSERT INTO users (nama, nomor_hp, alamat, role, password, saldo) VALUES (?, ?, ?, ?, ?, ?)',
+        ['Siti Nasabah', '081299999999', 'Jl. Mawar No. 12, RT 02/03', 'Nasabah', hashedDefaultPassword, 50000]
+      );
+      const nasabahId = nasabahRes.lastID;
 
-    await dbRun('INSERT INTO kategori_sampah (nama_kategori, harga_per_kg) VALUES (?, ?)', ['Plastik PET', 2000]);
-    await dbRun('INSERT INTO kategori_sampah (nama_kategori, harga_per_kg) VALUES (?, ?)', ['Kardus', 1500]);
-    await dbRun('INSERT INTO kategori_sampah (nama_kategori, harga_per_kg) VALUES (?, ?)', ['Besi', 5000]);
+      const pengepulRes = await rawRun(
+        'INSERT INTO users (nama, nomor_hp, alamat, role, password, saldo) VALUES (?, ?, ?, ?, ?, ?)',
+        ['Rudi Pengepul', '081388888888', 'Gudang Sukses Makmur, Bekasi', 'Pengepul', hashedDefaultPassword, 0]
+      );
+      const pengepulId = pengepulRes.lastID;
 
-    await dbRun('INSERT INTO transaksi_setor (id_user, id_petugas, tanggal_setor) VALUES (?, ?, ?)', [2, 1, '2026-06-01 10:00:00']);
-    await dbRun('INSERT INTO detail_setor (id_setor, id_kategori, berat_kg, subtotal) VALUES (?, ?, ?, ?)', [1, 1, 15, 30000]);
-    await dbRun('INSERT INTO detail_setor (id_setor, id_kategori, berat_kg, subtotal) VALUES (?, ?, ?, ?)', [1, 2, 20, 30000]);
-    await dbRun('UPDATE users SET saldo = saldo + ? WHERE id_user = ?', [60000, 2]);
+      const katCountRow = await rawGet('SELECT COUNT(*) AS count FROM kategori_sampah');
+      let katPetId = 1;
+      let katKardusId = 2;
+      if (!katCountRow || katCountRow.count === 0) {
+        const kat1 = await rawRun('INSERT INTO kategori_sampah (nama_kategori, harga_per_kg) VALUES (?, ?)', ['Plastik PET', 2000]);
+        const kat2 = await rawRun('INSERT INTO kategori_sampah (nama_kategori, harga_per_kg) VALUES (?, ?)', ['Kardus', 1500]);
+        await rawRun('INSERT INTO kategori_sampah (nama_kategori, harga_per_kg) VALUES (?, ?)', ['Besi', 5000]);
+        katPetId = kat1.lastID;
+        katKardusId = kat2.lastID;
+      }
 
-    await dbRun('INSERT INTO penarikan_saldo (id_user, jumlah_tarik, tanggal_pengajuan, status) VALUES (?, ?, ?, ?)', [2, 10000, '2026-06-02 14:00:00', 'Success']);
-    await dbRun('INSERT INTO penarikan_saldo (id_user, jumlah_tarik, tanggal_pengajuan, status) VALUES (?, ?, ?, ?)', [2, 25000, '2026-06-03 09:00:00', 'Pending']);
+      const setorRes = await rawRun(
+        'INSERT INTO transaksi_setor (id_user, id_petugas, tanggal_setor) VALUES (?, ?, ?)',
+        [nasabahId, petugasId, '2026-06-01 10:00:00']
+      );
+      const setorId = setorRes.lastID;
 
-    await dbRun('INSERT INTO pembelian_pengepul (id_user, id_kategori, berat_kg, tanggal_pembelian, total_bayar) VALUES (?, ?, ?, ?, ?)', [3, 1, 5, '2026-06-02 16:30:00', 10000]);
+      await rawRun(
+        'INSERT INTO detail_setor (id_setor, id_kategori, berat_kg, subtotal) VALUES (?, ?, ?, ?)',
+        [setorId, katPetId, 15, 30000]
+      );
+      await rawRun(
+        'INSERT INTO detail_setor (id_setor, id_kategori, berat_kg, subtotal) VALUES (?, ?, ?, ?)',
+        [setorId, katKardusId, 20, 30000]
+      );
+      await rawRun('UPDATE users SET saldo = saldo + ? WHERE id_user = ?', [60000, nasabahId]);
 
-    console.log("Seeding awal SQLite di Next.js sukses!");
-  }
+      await rawRun(
+        'INSERT INTO penarikan_saldo (id_user, jumlah_tarik, tanggal_pengajuan, status) VALUES (?, ?, ?, ?)',
+        [nasabahId, 10000, '2026-06-02 14:00:00', 'Success']
+      );
+      await rawRun(
+        'INSERT INTO penarikan_saldo (id_user, jumlah_tarik, tanggal_pengajuan, status) VALUES (?, ?, ?, ?)',
+        [nasabahId, 25000, '2026-06-03 09:00:00', 'Pending']
+      );
+
+      await rawRun(
+        'INSERT INTO pembelian_pengepul (id_user, id_kategori, berat_kg, tanggal_pembelian, total_bayar) VALUES (?, ?, ?, ?, ?)',
+        [pengepulId, katPetId, 5, '2026-06-02 16:30:00', 10000]
+      );
+
+      console.log('Seeding awal SQLite sukses!');
+    }
+
+    isInitialized = true;
+  })().catch((err) => {
+    initPromise = null;
+    throw err;
+  });
+
+  return initPromise;
 }
+
+export const dbRun = async (query: string, params: any[] = []): Promise<any> => {
+  await initializeDatabase();
+  return rawRun(query, params);
+};
+
+export const dbGet = async (query: string, params: any[] = []): Promise<any> => {
+  await initializeDatabase();
+  return rawGet(query, params);
+};
+
+export const dbAll = async (query: string, params: any[] = []): Promise<any[]> => {
+  await initializeDatabase();
+  return rawAll(query, params);
+};

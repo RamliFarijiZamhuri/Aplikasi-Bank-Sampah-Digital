@@ -35,26 +35,32 @@ export default function LoginPage() {
         body: JSON.stringify({ nomor_hp: nomorHp, password }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        throw new Error('Server mengembalikan respons tidak valid. Silakan coba lagi.');
+      }
+
       if (!res.ok) {
         throw new Error(data.message || 'Login gagal');
       }
 
       setSuccess('Login berhasil! Mengalihkan ke dashboard...');
-      
+
       // Redirect to respective cockpit based on role
+      let targetUrl = '/';
       if (data.role === 'Nasabah') {
-        router.push('/dashboard/nasabah');
+        targetUrl = '/dashboard/nasabah';
       } else if (data.role === 'Petugas') {
-        router.push('/dashboard/petugas');
+        targetUrl = '/dashboard/petugas';
       } else if (data.role === 'Pengepul') {
-        router.push('/dashboard/pengepul');
-      } else {
-        router.push('/');
+        targetUrl = '/dashboard/pengepul';
       }
+      window.location.assign(targetUrl);
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan sistem internal.');
-    } finally {
       setLoading(false);
     }
   };
