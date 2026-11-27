@@ -13,6 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const id_tarik = parseInt(req.body.id_tarik);
+  const catatan = typeof req.body.catatan === 'string' ? req.body.catatan.trim() : null;
   if (!id_tarik) {
     return res.status(400).json({ message: 'ID pengajuan tidak valid' });
   }
@@ -42,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 1. Update status to Success
-    await dbRun('UPDATE penarikan_saldo SET status = "Success" WHERE id_tarik = ?', [id_tarik]);
+    await dbRun('UPDATE penarikan_saldo SET status = "Success", catatan = ? WHERE id_tarik = ?', [catatan, id_tarik]);
 
     // 2. Debit nasabah's official balance
     await dbRun('UPDATE users SET saldo = saldo - ? WHERE id_user = ?', [wd.jumlah_tarik, wd.id_user]);

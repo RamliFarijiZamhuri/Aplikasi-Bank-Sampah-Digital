@@ -119,11 +119,55 @@ export async function initializeDatabase(): Promise<void> {
         id_user INTEGER NOT NULL,
         id_tarik_dummy INTEGER,
         jumlah_tarik REAL NOT NULL,
+        nama_bank TEXT,
+        nomor_rekening TEXT,
+        atas_nama TEXT,
+        catatan TEXT,
         tanggal_pengajuan TEXT NOT NULL,
-        status TEXT CHECK(status IN ('Pending', 'Success')) DEFAULT 'Pending',
+        status TEXT CHECK(status IN ('Pending', 'Success', 'Rejected')) DEFAULT 'Pending',
         FOREIGN KEY (id_user) REFERENCES users (id_user) ON DELETE CASCADE
       );
     `);
+
+    // Migrasi otomatis kolom & constraint status 'Rejected' untuk database lokal yang sudah ada
+    const tarikTableMeta = await rawGet(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='penarikan_saldo'"
+    );
+    if (tarikTableMeta?.sql && (!tarikTableMeta.sql.includes('nama_bank') || !tarikTableMeta.sql.includes('Rejected'))) {
+      const existingCols: any[] = await rawAll('PRAGMA table_info(penarikan_saldo)');
+      const colNames = new Set(existingCols.map((c) => c.name));
+      const selectNamaBank = colNames.has('nama_bank') ? 'nama_bank' : 'NULL';
+      const selectNoRek = colNames.has('nomor_rekening') ? 'nomor_rekening' : 'NULL';
+      const selectAtasNama = colNames.has('atas_nama') ? 'atas_nama' : 'NULL';
+      const selectCatatan = colNames.has('catatan') ? 'catatan' : 'NULL';
+
+      await rawRun('PRAGMA foreign_keys = OFF;');
+      await rawRun(`
+        CREATE TABLE penarikan_saldo_migrated (
+          id_tarik INTEGER PRIMARY KEY AUTOINCREMENT,
+          id_user INTEGER NOT NULL,
+          id_tarik_dummy INTEGER,
+          jumlah_tarik REAL NOT NULL,
+          nama_bank TEXT,
+          nomor_rekening TEXT,
+          atas_nama TEXT,
+          catatan TEXT,
+          tanggal_pengajuan TEXT NOT NULL,
+          status TEXT CHECK(status IN ('Pending', 'Success', 'Rejected')) DEFAULT 'Pending',
+          FOREIGN KEY (id_user) REFERENCES users (id_user) ON DELETE CASCADE
+        );
+      `);
+      await rawRun(`
+        INSERT INTO penarikan_saldo_migrated
+          (id_tarik, id_user, id_tarik_dummy, jumlah_tarik, nama_bank, nomor_rekening, atas_nama, catatan, tanggal_pengajuan, status)
+        SELECT
+          id_tarik, id_user, id_tarik_dummy, jumlah_tarik, ${selectNamaBank}, ${selectNoRek}, ${selectAtasNama}, ${selectCatatan}, tanggal_pengajuan, status
+        FROM penarikan_saldo;
+      `);
+      await rawRun('DROP TABLE penarikan_saldo;');
+      await rawRun('ALTER TABLE penarikan_saldo_migrated RENAME TO penarikan_saldo;');
+      await rawRun('PRAGMA foreign_keys = ON;');
+    }
 
     await rawRun(`
       CREATE TABLE IF NOT EXISTS pembelian_pengepul (
@@ -191,12 +235,12 @@ export async function initializeDatabase(): Promise<void> {
       await rawRun('UPDATE users SET saldo = saldo + ? WHERE id_user = ?', [60000, nasabahId]);
 
       await rawRun(
-        'INSERT INTO penarikan_saldo (id_user, jumlah_tarik, tanggal_pengajuan, status) VALUES (?, ?, ?, ?)',
-        [nasabahId, 10000, '2026-06-02 14:00:00', 'Success']
+        'INSERT INTO penarikan_saldo (id_user, jumlah_tarik, nama_bank, nomor_rekening, atas_nama, tanggal_pengajuan, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [nasabahId, 10000, 'BRI', '123456789012', 'Siti Nasabah', '2026-06-02 14:00:00', 'Success']
       );
       await rawRun(
-        'INSERT INTO penarikan_saldo (id_user, jumlah_tarik, tanggal_pengajuan, status) VALUES (?, ?, ?, ?)',
-        [nasabahId, 25000, '2026-06-03 09:00:00', 'Pending']
+        'INSERT INTO penarikan_saldo (id_user, jumlah_tarik, nama_bank, nomor_rekening, atas_nama, tanggal_pengajuan, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [nasabahId, 25000, 'DANA', '081299999999', 'Siti Nasabah', '2026-06-03 09:00:00', 'Pending']
       );
 
       await rawRun(
