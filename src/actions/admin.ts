@@ -1,4 +1,3 @@
-import { getServerSession } from 'next-auth';
 import bcrypt from 'bcryptjs';
 import { dbRun, dbGet } from '../lib/db';
 import { getSessionUser } from '../lib/session';
@@ -13,23 +12,12 @@ export interface CreateStaffInput {
 
 /**
  * Mendaftarkan akun 'Petugas' atau 'Pengepul' secara manual oleh pengelola (Admin/Staff).
- * Menggunakan `getServerSession` dari NextAuth dengan fallback ke `getSessionUser` kustom.
+ * Menggunakan `getSessionUser` dari session cookie.
  */
-export async function createStaffAccount(input: CreateStaffInput, req?: any, res?: any, authOptions?: any) {
+export async function createStaffAccount(input: CreateStaffInput, req?: any, _res?: any) {
   let currentUserRole: string | null = null;
 
-  // 1. Coba verifikasi session menggunakan getServerSession NextAuth
-  try {
-    const session = await getServerSession(req, res, authOptions);
-    if (session?.user) {
-      currentUserRole = (session.user as any).role;
-    }
-  } catch (e) {
-    // NextAuth belum terkonfigurasi secara penuh, lanjut ke fallback
-  }
-
-  // 2. Fallback: Verifikasi menggunakan getSessionUser kustom jika NextAuth mengembalikan null
-  if (!currentUserRole && req) {
+  if (req) {
     const customUser = getSessionUser(req);
     if (customUser) {
       currentUserRole = customUser.role;
