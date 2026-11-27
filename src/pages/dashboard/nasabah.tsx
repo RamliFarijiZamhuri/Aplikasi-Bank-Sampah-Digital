@@ -8,6 +8,7 @@ import { Leaf, LogOut, Clock, Wallet, Info, Banknote, Send, History, Tag, Packag
 interface NasabahDashboardProps {
   user: SessionUser;
   balance: number;
+  pending_tarik: number;
   total_berat: number;
   total_pendapatan: number;
   total_tertarik: number;
@@ -19,6 +20,7 @@ interface NasabahDashboardProps {
 export default function NasabahDashboard({
   user,
   balance,
+  pending_tarik,
   total_berat,
   total_pendapatan,
   total_tertarik,
@@ -28,9 +30,14 @@ export default function NasabahDashboard({
 }: NasabahDashboardProps) {
   const router = useRouter();
   const [jumlahTarik, setJumlahTarik] = useState('');
+  const [namaBank, setNamaBank] = useState('BRI');
+  const [nomorRekening, setNomorRekening] = useState('');
+  const [atasNama, setAtasNama] = useState(user.nama);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const availableBalance = Math.max(0, (balance || 0) - (pending_tarik || 0));
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -48,8 +55,13 @@ export default function NasabahDashboard({
       return;
     }
 
-    if (parsedNum > balance) {
-      setError(`Saldo tidak mencukupi! Saldo Anda hanya Rp ${balance.toLocaleString('id-ID')}`);
+    if (parsedNum > availableBalance) {
+      setError(`Saldo tersedia tidak mencukupi! Saldo tersedia Anda Rp ${availableBalance.toLocaleString('id-ID')}`);
+      return;
+    }
+
+    if (!namaBank.trim() || !nomorRekening.trim() || !atasNama.trim()) {
+      setError('Mohon lengkapi Bank/E-Wallet, Nomor Rekening/HP, dan Atas Nama penerima.');
       return;
     }
 
@@ -60,7 +72,12 @@ export default function NasabahDashboard({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ jumlah_tarik: parsedNum }),
+        body: JSON.stringify({
+          jumlah_tarik: parsedNum,
+          nama_bank: namaBank.trim(),
+          nomor_rekening: nomorRekening.trim(),
+          atas_nama: atasNama.trim(),
+        }),
       });
 
       const data = await res.json();
@@ -70,6 +87,7 @@ export default function NasabahDashboard({
 
       setSuccess(data.message || 'Pengajuan penarikan berhasil terkirim!');
       setJumlahTarik('');
+      setNomorRekening('');
       
       // Refresh server-side props to update table queues
       router.replace(router.asPath);
@@ -167,7 +185,7 @@ export default function NasabahDashboard({
         {/* Statistics Grid & Quick Action */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Card Saldo */}
-          <div className="bg-gradient-to-br from-emerald-600 to-teal-800 rounded-2xl shadow-lg p-6 text-white flex flex-col justify-between h-48 relative overflow-hidden">
+          <div className="bg-gradient-to-br from-emerald-600 to-teal-800 rounded-2xl shadow-lg p-6 text-white flex flex-col justify-between min-h-48 relative overflow-hidden">
             <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 opacity-10">
               <Wallet className="w-48 h-48" />
             </div>
@@ -176,6 +194,12 @@ export default function NasabahDashboard({
               <span className="text-4xl font-black mt-2 block tracking-tight">
                 Rp {(balance || 0).toLocaleString('id-ID')}
               </span>
+              <div className="mt-2 text-xs text-emerald-100 space-y-0.5">
+                <div>Saldo Tersedia: <strong className="font-mono text-white">Rp {availableBalance.toLocaleString('id-ID')}</strong></div>
+                {pending_tarik > 0 && (
+                  <div className="text-amber-200">Sedang Pending: <strong className="font-mono">Rp {pending_tarik.toLocaleString('id-ID')}</strong></div>
+                )}
+              </div>
             </div>
             <div className="border-t border-white/10 pt-4 flex justify-between items-center text-xs text-emerald-200">
               <span>ID Nasabah: #{user.id}</span>
@@ -184,7 +208,7 @@ export default function NasabahDashboard({
           </div>
 
           {/* Card Stats Ringkas */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between h-48">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between min-h-48">
             <div>
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Ringkasan Tabungan Anda</span>
               <div className="grid grid-cols-2 gap-4 mt-4">
@@ -207,16 +231,60 @@ export default function NasabahDashboard({
           {/* Form Pengajuan Penarikan */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
             <div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-1">
                 <Banknote className="w-5 h-5 text-emerald-600" />
-                <h3 className="text-base font-bold text-slate-800">Tarik Saldo</h3>
+                <h3 className="text-base font-bold text-slate-800">Tarik Saldo (Transfer)</h3>
               </div>
-              <p className="text-xs text-slate-500 mb-4 font-normal">Ajukan penarikan saldo ke rekening/pembayaran cash. Petugas akan memvalidasi pengajuan Anda.</p>
+              <p className="text-xs text-slate-500 mb-3 font-normal">Ajukan transfer ke rekening bank atau e-wallet Anda. Petugas akan memvalidasi &amp; mengirim dana.</p>
             </div>
 
-            <form onSubmit={handleWithdrawal} className="space-y-3">
+            <form onSubmit={handleWithdrawal} className="space-y-2.5">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Bank / E-Wallet</label>
+                  <select
+                    value={namaBank}
+                    onChange={(e) => setNamaBank(e.target.value)}
+                    required
+                    className="block w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
+                  >
+                    <option value="BRI">BRI</option>
+                    <option value="BCA">BCA</option>
+                    <option value="BNI">BNI</option>
+                    <option value="Mandiri">Mandiri</option>
+                    <option value="DANA">DANA</option>
+                    <option value="GoPay">GoPay</option>
+                    <option value="OVO">OVO</option>
+                    <option value="ShopeePay">ShopeePay</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">No. Rekening / HP</label>
+                  <input
+                    type="text"
+                    value={nomorRekening}
+                    onChange={(e) => setNomorRekening(e.target.value)}
+                    required
+                    placeholder="Contoh: 1234567890"
+                    className="block w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Nominal Penarikan (Rupiah)</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Atas Nama Penerima</label>
+                <input
+                  type="text"
+                  value={atasNama}
+                  onChange={(e) => setAtasNama(e.target.value)}
+                  required
+                  placeholder="Nama pemilik rekening"
+                  className="block w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Nominal Penarikan (Rupiah)</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-semibold text-sm">
                     Rp
@@ -229,7 +297,7 @@ export default function NasabahDashboard({
                     required 
                     min="1000" 
                     step="500" 
-                    placeholder="Min. 1.000"
+                    placeholder={`Maks. ${availableBalance.toLocaleString('id-ID')}`}
                     className="block w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
                   />
                 </div>
@@ -237,11 +305,11 @@ export default function NasabahDashboard({
               
               <button 
                 type="submit" 
-                disabled={submitting}
+                disabled={submitting || availableBalance < 1000}
                 className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition duration-150 shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>{submitting ? 'Mengirim...' : 'Kirim Pengajuan'}</span>
+                <span>{submitting ? 'Mengirim...' : 'Kirim Pengajuan Transfer'}</span>
               </button>
             </form>
           </div>
@@ -332,6 +400,7 @@ export default function NasabahDashboard({
                     <tr className="bg-slate-100 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
                       <th className="px-6 py-3">ID</th>
                       <th className="px-6 py-3">Tanggal Pengajuan</th>
+                      <th className="px-6 py-3">Tujuan Transfer</th>
                       <th className="px-6 py-3 text-right">Jumlah Tarik</th>
                       <th className="px-6 py-3 text-center">Status</th>
                     </tr>
@@ -339,7 +408,7 @@ export default function NasabahDashboard({
                   <tbody className="divide-y divide-slate-100 text-slate-700 font-mono text-xs">
                     {list_tarik.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-6 py-8 text-center text-slate-400 font-sans">
+                        <td colSpan={5} className="px-6 py-8 text-center text-slate-400 font-sans">
                           <div className="flex flex-col items-center justify-center gap-2">
                             <Info className="w-8 h-8 text-slate-300" />
                             <span>Belum ada pengajuan penarikan dana.</span>
@@ -355,6 +424,16 @@ export default function NasabahDashboard({
                           <td className="px-6 py-3 text-slate-500">
                             {new Date(tarik.tanggal_pengajuan).toLocaleString('id-ID')}
                           </td>
+                          <td className="px-6 py-3 font-sans text-slate-700">
+                            {tarik.nama_bank ? (
+                              <div>
+                                <span className="font-bold">{tarik.nama_bank}</span> &bull; <span className="font-mono">{tarik.nomor_rekening}</span>
+                                <span className="block text-[11px] text-slate-400">a.n. {tarik.atas_nama}</span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </td>
                           <td className="px-6 py-3 text-right font-bold text-slate-950">
                             Rp {tarik.jumlah_tarik.toLocaleString('id-ID')}
                           </td>
@@ -362,13 +441,32 @@ export default function NasabahDashboard({
                             {tarik.status === 'Pending' ? (
                               <span className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-700 font-semibold px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-sans">
                                 <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span>
-                                Proses Verifikasi
+                                Menunggu Transfer
                               </span>
+                            ) : tarik.status === 'Rejected' ? (
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="inline-flex items-center gap-1 bg-red-50 border border-red-200 text-red-700 font-semibold px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-sans">
+                                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                                  Ditolak
+                                </span>
+                                {tarik.catatan && (
+                                  <span className="text-[10px] text-red-600 font-sans max-w-[160px] truncate" title={tarik.catatan}>
+                                    {tarik.catatan}
+                                  </span>
+                                )}
+                              </div>
                             ) : (
-                              <span className="inline-flex items-center gap-1 bg-green-50 border border-green-200 text-green-700 font-semibold px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-sans">
-                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                                Dana Dikirim
-                              </span>
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="inline-flex items-center gap-1 bg-green-50 border border-green-200 text-green-700 font-semibold px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-sans">
+                                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                                  Dana Ditransfer
+                                </span>
+                                {tarik.catatan && (
+                                  <span className="text-[10px] text-slate-500 font-sans max-w-[160px] truncate" title={tarik.catatan}>
+                                    Ref: {tarik.catatan}
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </td>
                         </tr>
@@ -491,6 +589,14 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     `, [userId]);
     const total_tertarik = wdRow ? wdRow.total_tertarik : 0;
 
+    // Pending withdrawals
+    const pendingRow = await dbGet(`
+      SELECT COALESCE(SUM(jumlah_tarik), 0) AS pending_tarik
+      FROM penarikan_saldo
+      WHERE id_user = ? AND status = 'Pending'
+    `, [userId]);
+    const pending_tarik = pendingRow ? pendingRow.pending_tarik : 0;
+
     // Deposit details list
     const list_setor = await dbAll(`
       SELECT ts.id_setor, ts.tanggal_setor, ds.berat_kg, ds.subtotal, k.nama_kategori, u_petugas.nama AS nama_petugas
@@ -512,6 +618,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       props: {
         user,
         balance,
+        pending_tarik: pending_tarik || 0,
         total_berat: total_berat || 0,
         total_pendapatan: total_pendapatan || 0,
         total_tertarik: total_tertarik || 0,

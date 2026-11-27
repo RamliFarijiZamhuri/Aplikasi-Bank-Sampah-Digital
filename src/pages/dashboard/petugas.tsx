@@ -160,11 +160,16 @@ export default function PetugasDashboard({
     setError('');
     setSuccess('');
 
+    const catatan = window.prompt('Masukkan nomor referensi / catatan transfer (opsional):', '');
+    if (catatan === null) {
+      return;
+    }
+
     try {
       const res = await fetch('/api/petugas/approve-tarik', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_tarik: idTarik })
+        body: JSON.stringify({ id_tarik: idTarik, catatan })
       });
 
       const data = await res.json();
@@ -183,7 +188,8 @@ export default function PetugasDashboard({
     setError('');
     setSuccess('');
 
-    if (!confirm('Apakah Anda yakin ingin menolak pengajuan ini?')) {
+    const catatan = window.prompt('Masukkan alasan penolakan (opsional):', '');
+    if (catatan === null) {
       return;
     }
 
@@ -191,7 +197,7 @@ export default function PetugasDashboard({
       const res = await fetch('/api/petugas/reject-tarik', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_tarik: idTarik })
+        body: JSON.stringify({ id_tarik: idTarik, catatan })
       });
 
       const data = await res.json();
@@ -618,6 +624,14 @@ export default function PetugasDashboard({
                             <Wallet className="w-3 h-3 text-emerald-600" />
                             <span>Saldo Terakhir: <strong className="text-slate-800 font-mono">Rp {tarik.saldo_nasabah.toLocaleString('id-ID')}</strong></span>
                           </div>
+                          {tarik.nama_bank && (
+                            <div className="mt-2 bg-white border border-slate-200 rounded-lg p-2 text-[11px] text-slate-700">
+                              <span className="font-bold text-emerald-700">Tujuan Transfer:</span>{' '}
+                              <span className="font-semibold">{tarik.nama_bank}</span> &bull;{' '}
+                              <span className="font-mono font-bold">{tarik.nomor_rekening}</span>
+                              <span className="block text-slate-500">a.n. {tarik.atas_nama}</span>
+                            </div>
+                          )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 border-t border-slate-200 pt-3">
